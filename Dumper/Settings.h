@@ -24,7 +24,8 @@ namespace Settings
 		/* No seperate namespace for Params -> ParamNamespaceName = nullptr */
 		constexpr const char* ParamNamespaceName = "Params";
 
-		/* Do not XOR strings -> XORString = nullptr */
+		/* Feature is currently not supported/not working. */
+		/* Do not XOR strings -> XORString = nullptr. Custom XorStr implementations differing from https://github.com/JustasMasiulis/xorstr may require changes to the struct 'StringLiteral' in CppGenerator.cpp.  */
 		constexpr const char* XORString = nullptr;
 
 		/* Customizable part of Cpp code to allow for a custom 'uintptr_t InSDKUtils::GetImageBase()' function */
@@ -33,7 +34,7 @@ R"(	{
 		return reinterpret_cast<uintptr_t>(GetModuleHandle(0));
 	}
 )";
-		//Customizable part of Cpp code to allow for a custom 'InSDKUtils::CallGameFunction' function */
+		/* Customizable part of Cpp code to allow for a custom 'InSDKUtils::CallGameFunction' function */
 		constexpr const char* CallGameFunction =
 R"(
 	template<typename FuncType, typename... ParamTypes>
@@ -43,7 +44,10 @@ R"(
 		return Function(std::forward<ParamTypes>(Args)...);
 	}
 )";
-		// This will allow the user to supply manual locations of various GOffset classes at runtime. */
+		/* An option to force the UWorld::GetWorld() funtion in the SDK to get the world throught an insance of UEngine. Useful for games on which the dumper finds the wrong GWorld offset. */
+		constexpr bool bForceNoGWorldInSDK = false;
+
+		/* This will allow the user to manually initialize global variable addreses in the SDK (eg. GObjects, GNames, AppendString). */
 		constexpr bool bAddManualOverrideOptions = true;
 	}
 
