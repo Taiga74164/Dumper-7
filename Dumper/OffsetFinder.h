@@ -215,7 +215,7 @@ namespace OffsetFinder
 		/* Nothing to do for us, everything is fine! */
 		if (Off::InSDK::Name::FNameSize == FNameSize)
 			return;
-		
+
 		/* We've used the wrong FNameSize to determine the offset of FField::Flags. Substract the old, wrong, size and add the new one.*/
 		Off::FField::Flags = (Off::FField::Flags - Off::InSDK::Name::FNameSize) + FNameSize;
 
@@ -391,7 +391,7 @@ namespace OffsetFinder
 		return FindOffset(Infos);
 	}
 
-	inline int32_t FindMinAlignment()
+	inline int32_t FindMinAlignmentOffset()
 	{
 		std::vector<std::pair<void*, int32_t>> Infos;
 
@@ -626,9 +626,10 @@ namespace OffsetFinder
 		return PropertySize;
 	}
 
-	/* ULevel */
+	/* InSDK -> ULevel */
 	inline int32_t FindLevelActorsOffset()
 	{
+		UEObject Level = nullptr;
 		uintptr_t Lvl = 0x0;
 
 		for (auto Obj : ObjectArray())
@@ -636,6 +637,7 @@ namespace OffsetFinder
 			if (Obj.HasAnyFlags(EObjectFlags::ClassDefaultObject) || !Obj.IsA(EClassCastFlags::Level))
 				continue;
 
+			Level = Obj;
 			Lvl = reinterpret_cast<uintptr_t>(Obj.GetAddress());
 			break;
 		}
@@ -656,19 +658,45 @@ namespace OffsetFinder
 		*/
 
 		int32 SearchStart = ObjectArray::FindClassFast("Object").GetStructSize() + ObjectArray::FindObjectFast<UEStruct>("URL", EClassCastFlags::Struct).GetStructSize();
-		int32 SearchEnd = ObjectArray::FindClassFast("Level").FindMember("OwningWorld").GetOffset();
+		int32 SearchEnd = Level.GetClass().FindMember("OwningWorld").GetOffset();
 
-		for (int i = SearchStart; i < (SearchEnd - 0x10); i += 8)
+		for (int i = SearchStart; i <= (SearchEnd - 0x10); i += 8)
 		{
-			if (*reinterpret_cast<int32_t*>(Lvl + i + 0xC) >= *reinterpret_cast<int32_t*>(Lvl + i + 0x8) /* TArray::MaxElements >= TArray::NumElements */
-				&& *reinterpret_cast<int64_t*>(Lvl + i + 0x8) // TArray::MaxElements == 0 && TArray::NumElements && 0
-				&& !IsBadReadPtr(*reinterpret_cast<void**>(Lvl + i)))
+			const TArray<void*>& ActorArray = *reinterpret_cast<TArray<void*>*>(Lvl + i);
+
+			if (ActorArray.IsValid() && !IsBadReadPtr(ActorArray.GetDataPtr()))
 			{
 				return i;
 			}
 		}
 
 		return OffsetNotFound;
+	}
+
+
+	/* InSDK -> UDataTable */
+	inline int32_t FindDatatableRowMapOffset()
+	{
+		const UEClass DataTable = ObjectArray::FindClassFast("DataTable");
+
+		constexpr int32 UObjectOuterSize = 0x8;
+		constexpr int32 RowStructSize = 0x8;
+
+		if (!DataTable)
+		{
+			std::cout << "\nDumper-7: [DataTable] Couldn't find \"DataTable\" class, assuming default layout.\n" << std::endl;
+			return (Off::UObject::Outer + UObjectOuterSize + RowStructSize);
+		}
+
+		UEProperty RowStructProp = DataTable.FindMember("RowStruct", EClassCastFlags::ObjectProperty);
+
+		if (!RowStructProp)
+		{
+			std::cout << "\nDumper-7: [DataTable] Couldn't find \"RowStruct\" property, assuming default layout.\n" << std::endl;
+			return (Off::UObject::Outer + UObjectOuterSize + RowStructSize);
+		}
+
+		return RowStructProp.GetOffset() + RowStructProp.GetSize();
 	}
 }
 
