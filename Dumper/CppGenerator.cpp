@@ -513,8 +513,11 @@ std::string CppGenerator::GenerateSingleFunction(const FunctionWrapper& Func, co
 	std::string FixedOuterName = PrefixQuotsWithBackslash(UnrealFunc.GetOuter().GetName());
 	std::string FixedFunctionName = PrefixQuotsWithBackslash(UnrealFunc.GetName());
 
+	uint64 FunctionRVA = reinterpret_cast<uint64>(UnrealFunc.GetExecFunction()) - GetImageBase();
+
 	// Function implementation generation
 	std::string FunctionImplementation = std::format(R"(
+// RVA 0x{:08X}
 // {}
 // ({})
 {}
@@ -528,7 +531,8 @@ std::string CppGenerator::GenerateSingleFunction(const FunctionWrapper& Func, co
 	{}ProcessEvent(Func, {});{}{}{}{}
 }}
 
-)", UnrealFunc.GetFullName()
+)", FunctionRVA
+, UnrealFunc.GetFullName()
 , StringifyFunctionFlags(FuncInfo.FuncFlags)
 , bHasParams ? ParamDescriptionCommentString : ""
 , FuncInfo.RetType
